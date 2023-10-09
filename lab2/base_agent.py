@@ -27,7 +27,7 @@ class DQNBaseAgent(ABC):
 		self.writer = SummaryWriter(config["logdir"])
 
 	@abstractmethod
-	def decide_agent_actions(self, observation, epsilon=0.0, action_space=None):
+	def decide_agent_action(self, observation, epsilon=0.0, action_space=None):
 		### TODO ###
 		# get action from behavior net, with epsilon-greedy selection
 		
@@ -63,9 +63,9 @@ class DQNBaseAgent(ABC):
 			episode_idx += 1
 			while True:
 				if self.total_time_step < self.warmup_steps:
-					action = self.decide_agent_actions(observation, 1.0, self.env.action_space)
+					action = self.decide_agent_action(observation, 1.0, self.env.action_space)
 				else:
-					action = self.decide_agent_actions(observation, self.epsilon, self.env.action_space)
+					action = self.decide_agent_action(observation, self.epsilon, self.env.action_space)
 					self.epsilon_decay()
 
 				next_observation, reward, terminate, truncate, info = self.env.step(action)
