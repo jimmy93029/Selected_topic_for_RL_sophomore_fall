@@ -22,17 +22,17 @@ class DQNBaseAgent(ABC):
 		self.gamma = config["gamma"]
 		self.update_freq = config["update_freq"]
 		self.update_target_freq = config["update_target_freq"]
-	
+
 		self.replay_buffer = ReplayMemory(int(config["replay_buffer_capacity"]))
 		self.writer = SummaryWriter(config["logdir"])
 
 	@abstractmethod
-	def decide_agent_action(self, observation, epsilon=0.0, action_space=None):
+	def decide_agent_actions(self, observation, epsilon=0.0, action_space=None):
 		### TODO ###
 		# get action from behavior net, with epsilon-greedy selection
-		
+
 		return NotImplementedError
-	
+
 	def update(self):
 		if self.total_time_step % self.update_freq == 0:
 			self.update_behavior_network()
@@ -45,11 +45,10 @@ class DQNBaseAgent(ABC):
 		state, action, reward, next_state, done = self.replay_buffer.sample(self.batch_size, self.device)
 		### TODO ###
 		# calculate the loss and update the behavior network
-		
 
 	def update_target_network(self):
 		self.target_net.load_state_dict(self.behavior_net.state_dict())
-	
+
 	def epsilon_decay(self):
 		self.epsilon -= (1 - self.eps_min) / self.eps_decay
 		self.epsilon = max(self.epsilon, self.eps_min)
@@ -57,15 +56,16 @@ class DQNBaseAgent(ABC):
 	def train(self):
 		episode_idx = 0
 		while self.total_time_step <= self.training_steps:
-			observation, info = self.env.reset()
+			seed = random.randint(1, 100000)
+			observation, info = self.env.reset(seed=seed)
 			episode_reward = 0
 			episode_len = 0
 			episode_idx += 1
 			while True:
 				if self.total_time_step < self.warmup_steps:
-					action = self.decide_agent_action(observation, 1.0, self.env.action_space)
+					action = self.decide_agent_actions(observation, 1.0, self.env.action_space)
 				else:
-					action = self.decide_agent_action(observation, self.epsilon, self.env.action_space)
+					action = self.decide_agent_actions(observation, self.epsilon, self.env.action_space)
 					self.epsilon_decay()
 
 				next_observation, reward, terminate, truncate, info = self.env.step(action)
@@ -76,17 +76,17 @@ class DQNBaseAgent(ABC):
 
 				episode_reward += reward
 				episode_len += 1
-				
-				if terminate or truncate:
+
+				if truncate or terminate:
 					self.writer.add_scalar('Train/Episode Reward', episode_reward, self.total_time_step)
 					self.writer.add_scalar('Train/Episode Len', episode_len, self.total_time_step)
 					print(f"[{self.total_time_step}/{self.training_steps}]  episode: {episode_idx}  \
 					episode reward: {episode_reward}  episode len: {episode_len}  epsilon: {self.epsilon}")
 					break
-					
+
 				observation = next_observation
 				self.total_time_step += 1
-				
+
 			if episode_idx % self.eval_interval == 0:
 				# save model checkpoint
 				avg_score = self.evaluate()
@@ -105,19 +105,19 @@ class DQNBaseAgent(ABC):
 				action = self.decide_agent_actions(observation, self.eval_epsilon, self.test_env.action_space)
 				next_observation, reward, terminate, truncate, info = self.test_env.step(action)
 				total_reward += reward
-				if terminate or truncate:
+				if truncate or terminate:
 					print(f"episode {i+1} reward: {total_reward}")
 					all_rewards.append(total_reward)
 					break
 
 				observation = next_observation
-			
+
 
 		avg = sum(all_rewards) / self.eval_episode
 		print(f"average score: {avg}")
 		print("==============================================")
 		return avg
-	
+
 	# save model
 	def save(self, save_path):
 		torch.save(self.behavior_net.state_dict(), save_path)

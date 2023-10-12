@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 class AtariNetDQN(nn.Module):
     def __init__(self, num_classes=9, init_weights=True):
@@ -21,11 +21,14 @@ class AtariNetDQN(nn.Module):
         if init_weights:
             self._initialize_weights()
 
-    def forward(self, x):
+    def forward(self, x, device):
+        if not torch.is_tensor(x):
+          x = torch.tensor(np.asarray(x), dtype=torch.float, device=device)
         x = x.float() / 255.
         x = self.cnn(x)
-        x = torch.flatten(x, start_dim=1)
+        x = torch.flatten(x, start_dim=1)  # 把每個 batch 裡面的 x flatten
         x = self.classifier(x)
+        # print(x.size())
         return x
 
     def _initialize_weights(self):
